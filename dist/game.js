@@ -149,10 +149,17 @@ $('#parent').onclick=()=>{
 };
 function switchProfile(p){profile=p;sessionStorage.setItem(key('profile'),p);state=saved();resetInput();render()}
 const authText={
- en:['Connect extension','Open Amber','Approve the connection and sign-in in Amber, then return here.','New code','Approve the sign-in in your extension.'],
- pl:['Połącz z rozszerzeniem','Otwórz Amber','Zatwierdź połączenie i logowanie w Amber, a potem wróć tutaj.','Nowy kod','Zatwierdź logowanie w rozszerzeniu.'],
- pt:['Ligar à extensão','Abrir Amber','Aprova a ligação e o início de sessão no Amber e volta aqui.','Novo código','Aprova o início de sessão na extensão.']
+ en:{amber:'Open Amber',approveAmber:'Approve the sign-in in Amber, then return here.',extension:'Approve the sign-in in your Nostr extension.',missing:'Open the game in the browser where your Nostr extension is enabled. Allow it access to this site, then retry.',file:'For extension login, open the game on localhost in the browser where your Nostr extension is enabled.',retry:'Retry'},
+ pl:{amber:'Otwórz Amber',approveAmber:'Zatwierdź logowanie w Amber i wróć tutaj.',extension:'Zatwierdź logowanie w rozszerzeniu Nostr.',missing:'Otwórz grę w przeglądarce z włączonym rozszerzeniem Nostr. Zezwól mu na dostęp do tej strony i spróbuj ponownie.',file:'Aby zalogować się przez rozszerzenie, otwórz grę na localhost w przeglądarce z włączonym rozszerzeniem Nostr.',retry:'Spróbuj ponownie'},
+ pt:{amber:'Abrir Amber',approveAmber:'Aprova o início de sessão no Amber e volta aqui.',extension:'Aprova o início de sessão na extensão Nostr.',missing:'Abre o jogo no navegador onde ativaste a extensão Nostr. Permite o acesso da extensão a este site e tenta novamente.',file:'Para entrar com a extensão, abre o jogo em localhost no navegador onde a extensão Nostr está ativa.',retry:'Tentar novamente'}
 };
+function isMobileSigner(){
+ return navigator.userAgentData?.mobile===true||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+}
+function extensionSigner(){
+ const signer=window.nostr;
+ return typeof signer?.getPublicKey==='function'&&typeof signer?.signEvent==='function'?signer:null;
+}
 const signerRelays=['wss://relay.nip46.com','wss://nrs.primal.net'];
 let activeAttempt;
 function stopSignIn(){
@@ -184,19 +191,27 @@ async function startSignIn(useAmber){
  activeAttempt=attempt;
  const status=$('#sign-status'),link=$('#amber-open');
  link.hidden=true;link.removeAttribute('href');
- const fail=()=>{if(activeAttempt===attempt){stopSignIn();link.hidden=true;status.textContent=t(44)}};
+ const fail=(message=t(44))=>{if(activeAttempt===attempt){stopSignIn();link.hidden=true;status.textContent=message;$('#auth-retry').hidden=false}};
+ $('#auth-retry').hidden=true;
  attempt.timer=setTimeout(fail,180000);
  try{
   if(!useAmber){
-   if(typeof window.nostr?.getPublicKey!=='function'||typeof window.nostr?.signEvent!=='function'){stopSignIn();status.textContent=t(43);return}
-   status.textContent=authText[lang][4];
-   await confirmIdentity(window.nostr,attempt);return;
+   status.textContent=authText[lang].extension;
+   let signer=extensionSigner();
+   for(let poll=0;!signer&&poll<20;poll++){
+    await new Promise(resolve=>setTimeout(resolve,100));
+    if(activeAttempt!==attempt)return;
+    signer=extensionSigner();
+   }
+   if(!signer){fail(authText[lang][location.protocol==='file:'?'file':'missing']);return}
+   await confirmIdentity(signer,attempt);return;
   }
   attempt.pool=new SimplePool();
   const ephemeral=generateSecretKey();
   const uri=createNostrConnectURI({clientPubkey:getPublicKey(ephemeral),relays:signerRelays,secret:hex(crypto.getRandomValues(new Uint8Array(16))),perms:['get_public_key','sign_event:27235'],name:'Ying Yang',...(location.protocol.startsWith('http')?{url:location.origin}:{})});
   const pairing=BunkerSigner.fromURI(ephemeral,uri,{pool:attempt.pool},attempt.controller.signal);
-  link.href=uri;link.hidden=false;status.textContent=authText[lang][2];
+  link.href=uri;link.hidden=false;status.textContent=authText[lang].approveAmber;
+  link.click();
   const signer=await pairing;
   if(activeAttempt!==attempt){await signer.close();return}
   attempt.signer=signer;
@@ -211,11 +226,12 @@ $('#account').onclick=()=>{
   body.querySelector('p').textContent=profile.slice(0,12)+'…'+profile.slice(-7);
   $('#logout').onclick=()=>{switchProfile('guest');modal.close()};
  }else{
-  const mobile=/Android/i.test(navigator.userAgent)||window.matchMedia?.('(max-width:720px)').matches;
-  body.innerHTML='<h2>'+t(37)+'</h2><div class="actions"><a hidden id="amber-open" class="primary">'+labels[1]+'</a><button id="extension">'+labels[0]+' (NIP-07)</button><button id="amber">Amber (NIP-46)</button></div><p id="sign-status" role="status"></p>';
-  $('#extension').onclick=()=>startSignIn(false);
-  $('#amber').onclick=()=>{$('#amber').textContent=labels[3];startSignIn(true)};
-  if(mobile)$('#amber').click();
+  const mobile=isMobileSigner();
+  body.innerHTML='<h2>'+t(37)+'</h2><p id="sign-status" role="status"></p><div class="actions"><a hidden id="amber-open" class="primary">'+labels.amber+'</a><button hidden id="auth-retry">'+labels.retry+'</button></div>';
+  $('#auth-retry').onclick=()=>startSignIn(mobile);
+  modal.showModal();
+  startSignIn(mobile);
+  return;
  }
  modal.showModal();
 };

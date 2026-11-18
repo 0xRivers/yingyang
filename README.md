@@ -8,7 +8,7 @@ From this directory, run the following command and open http://localhost:8000 in
 python3 -m http.server 8000 --bind 127.0.0.1 --directory dist
 ```
 
-Use the same browser and address to resume a collection. Open Nostr in the header to connect with Amber via NIP-46 on mobile or a NIP-07 browser extension on desktop. Amber needs an internet connection. The signer approves a fresh challenge for the local Ying Yang profile. Use Parents and the device PIN to reset progress. Word pronunciation uses voices available on the device.
+Use the same browser and address to resume a collection. Click Nostr once. Phones and tablets open Amber (NIP-46). Laptops and desktops request the NIP-07 extension, even in a narrow window. For local extension testing, use the localhost address above in the browser profile where your signer is installed and has site access. Amber needs an internet connection. The signer approves a fresh challenge for the local Ying Yang profile. Use Parents and the device PIN to reset progress. Word pronunciation uses voices available on the device.
 
 ## Publish to yy.teamtoxic.xyz
 
