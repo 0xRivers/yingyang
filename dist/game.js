@@ -162,18 +162,19 @@ function stopSignIn(){
  clearTimeout(attempt.timer);
  attempt.controller.abort();
  attempt.signer?.close().catch(()=>{});
- attempt.pool?.close(signerRelays);
+ attempt.pool?.destroy();
 }
 modal.addEventListener('close',stopSignIn);
 
 async function confirmIdentity(signer,attempt){
  const pubkey=await signer.getPublicKey();
  if(activeAttempt!==attempt)return;
- const challenge={kind:27235,created_at:Math.floor(Date.now()/1000),tags:[['u',location.href.split('#')[0]],['method','GET'],['challenge',crypto.randomUUID()]],content:''};
+ if(typeof pubkey!=='string'||!/^[a-f0-9]{64}$/.test(pubkey))throw Error();
+ const challenge={kind:27235,created_at:Math.floor(Date.now()/1000),tags:[['u',location.protocol==='file:'?'urn:ying-yang:local':location.origin+location.pathname],['method','GET'],['challenge',crypto.randomUUID()]],content:''};
  const expected=JSON.stringify(challenge.tags),created=challenge.created_at;
  const signed=JSON.parse(JSON.stringify(await signer.signEvent(challenge)));
  if(activeAttempt!==attempt||!modal.open)return;
- if(!/^[a-f0-9]{64}$/.test(pubkey)||signed.pubkey!==pubkey||signed.kind!==27235||signed.created_at!==created||signed.content!==''||JSON.stringify(signed.tags)!==expected||!verifyEvent(signed))throw Error();
+ if(signed.pubkey!==pubkey||signed.kind!==27235||signed.created_at!==created||signed.content!==''||JSON.stringify(signed.tags)!==expected||!verifyEvent(signed))throw Error();
  stopSignIn();switchProfile(pubkey);modal.close();
 }
 
@@ -187,14 +188,14 @@ async function startSignIn(useAmber){
  attempt.timer=setTimeout(fail,180000);
  try{
   if(!useAmber){
-   if(!window.nostr?.signEvent){stopSignIn();status.textContent=t(43);return}
+   if(typeof window.nostr?.getPublicKey!=='function'||typeof window.nostr?.signEvent!=='function'){stopSignIn();status.textContent=t(43);return}
    status.textContent=authText[lang][4];
    await confirmIdentity(window.nostr,attempt);return;
   }
   attempt.pool=new SimplePool();
   const ephemeral=generateSecretKey();
-  const uri=createNostrConnectURI({clientPubkey:getPublicKey(ephemeral),relays:signerRelays,secret:hex(crypto.getRandomValues(new Uint8Array(16))),perms:['sign_event:27235'],name:'Ying Yang',...(location.protocol.startsWith('http')?{url:location.origin}:{})});
-  const pairing=BunkerSigner.fromURI(ephemeral,uri,{pool:attempt.pool,skipSwitchRelays:true},attempt.controller.signal);
+  const uri=createNostrConnectURI({clientPubkey:getPublicKey(ephemeral),relays:signerRelays,secret:hex(crypto.getRandomValues(new Uint8Array(16))),perms:['get_public_key','sign_event:27235'],name:'Ying Yang',...(location.protocol.startsWith('http')?{url:location.origin}:{})});
+  const pairing=BunkerSigner.fromURI(ephemeral,uri,{pool:attempt.pool},attempt.controller.signal);
   link.href=uri;link.hidden=false;status.textContent=authText[lang][2];
   const signer=await pairing;
   if(activeAttempt!==attempt){await signer.close();return}
@@ -211,7 +212,7 @@ $('#account').onclick=()=>{
   $('#logout').onclick=()=>{switchProfile('guest');modal.close()};
  }else{
   const mobile=/Android/i.test(navigator.userAgent)||window.matchMedia?.('(max-width:720px)').matches;
-  body.innerHTML='<h2>'+t(37)+'</h2><div class="actions"><a hidden id="amber-open" class="primary">'+labels[1]+'</a><button id="extension">'+labels[0]+'</button><button id="amber">Amber</button></div><p id="sign-status" role="status"></p>';
+  body.innerHTML='<h2>'+t(37)+'</h2><div class="actions"><a hidden id="amber-open" class="primary">'+labels[1]+'</a><button id="extension">'+labels[0]+' (NIP-07)</button><button id="amber">Amber (NIP-46)</button></div><p id="sign-status" role="status"></p>';
   $('#extension').onclick=()=>startSignIn(false);
   $('#amber').onclick=()=>{$('#amber').textContent=labels[3];startSignIn(true)};
   if(mobile)$('#amber').click();
