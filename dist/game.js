@@ -10,7 +10,16 @@ const set=(s,v)=>storage.setItem(key(s),v);
 const langs=['en','pl','pt'];
 const locales=['en-GB','pl-PL','pt-PT'];
 const legacyLanguage=langs.includes(get('language'))?get('language'):'en';
-const languageNames={en:'English',pl:'Polish',pt:'Portuguese'};
+const commands={
+ en:{names:{en:'English',pl:'Polish',pt:'Portuguese'},setting:'Game instructions and menus',practice:'Practice languages',mode:'Game mode',modes:['Opposites','Translations'],complete:'All 21 translations complete!',type:'Type the translation',characters:'characters',show:'Show English',hide:'Hide English',about:'Translate 21 words and earn collection points.',ask:(word,lang)=>'How do you say “'+word+'” in '+commands.en.names[lang]+'?'},
+ pl:{names:{en:'angielski',pl:'polski',pt:'portugalski'},setting:'Język poleceń i menu',practice:'Języki do ćwiczeń',mode:'Tryb gry',modes:['Przeciwieństwa','Tłumaczenia'],complete:'Wszystkie 21 tłumaczeń gotowe!',type:'Wpisz tłumaczenie',characters:'znaki',show:'Pokaż po angielsku',hide:'Ukryj angielskie tłumaczenie',about:'Przetłumacz 21 słów i zdobądź punkty do kolekcji.',ask:(word,lang)=>'Jak powiedzieć „'+word+'” po '+({en:'angielsku',pl:'polsku',pt:'portugalsku'})[lang]+'?'},
+ pt:{names:{en:'inglês',pl:'polaco',pt:'português'},setting:'Língua das instruções e dos menus',practice:'Línguas de prática',mode:'Modo de jogo',modes:['Opostos','Traduções'],complete:'Completaste as 21 traduções!',type:'Escreve a tradução',characters:'caracteres',show:'Mostrar em inglês',hide:'Ocultar tradução inglesa',about:'Traduz 21 palavras e ganha pontos para a coleção.',ask:(word,lang)=>'Como se diz «'+word+'» em '+commands.pt.names[lang]+'?'}
+};
+function parentLanguage(){
+ const value=get('commands.'+profile);
+ return langs.includes(value)?value:'en';
+}
+const ui=()=>commands[parentLanguage()];
 let profile=sessionStorage.getItem(key('profile'))||'guest';
 let sound=get('sound')!=='off', wrong=-1, collection=location.hash==='#collection';
 let noticeTimer, hints=false, typed='';
@@ -21,7 +30,7 @@ const spelling={
 };
 const norm=v=>v.normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase(locales[langs.indexOf(questionLanguage())]);
 function resetInput(){wrong=-1;typed='';hints=false}
-const t=i=>copy.en[i];
+const t=i=>copy[parentLanguage()][i];
 const word=(q,side,language=questionLanguage())=>pairs[q][langs.indexOf(language)][side];
 const paths={user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',play:'<path d="m8 5 11 7-11 7z"/>',book:'<path d="M3 5q5-2 9 1 4-3 9-1v14q-5-2-9 1-4-3-9-1zM12 6v14"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',leaf:'<path d="M5 20c0-7 4-11 12-14M5 16C1 7 11 4 20 4c0 9-5 15-15 12Z"/>',speaker:'<path d="m11 5-5 4H3v6h3l5 4zM15 9q3 3 0 6m3-9q6 6 0 12"/>',phones:'<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="8" rx="2"/><rect x="17" y="12" width="4" height="8" rx="2"/>',arrow:'<path d="M4 12h15m-6-6 6 6-6 6"/>',mountain:'<path d="m2 19 7-12 4 7 3-5 6 10zM6 12l3 2 2-3"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M20 4l-2 2M6 18l-2 2"/>',moon:'<path d="M19 15A8 8 0 0 1 9 4a8.4 8.4 0 1 0 10 11Z"/><path d="m18 2 .6 2.4L21 5l-2.4.6L18 8l-.6-2.4L15 5l2.4-.6z"/>',rain:'<path d="M6 14a4 4 0 1 1 .3-8A5 5 0 0 1 16 7a3.5 3.5 0 1 1 1 7zM8 17l-1 2m6-2-1 3m6-3-1 2"/>'};
 const icon=k=>'<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+paths[k]+'</svg>';
@@ -113,39 +122,39 @@ const token=i=>'<span class="token '+(state.won.includes(i)?'won':'')+'">'+coin+
 const track=()=>'<div class="track"><span style="width:'+state.won.length/21*100+'%"></span></div>';
 function sidebar(){return '<aside><section class="album"><div class="row"><h2>'+t(10)+'</h2><span class="count">'+state.won.length+' / 21</span></div><p>'+t(11)+'</p>'+track()+'<div class="tokens" aria-hidden="true">'+pairs.map((_,i)=>token(i)).join('')+'</div><button class="collectionlink" data-go="collection">'+t(12)+icon('arrow')+'</button></section><section class="soundcard"><div class="soundlabel"><span class="soundicon">'+icon('phones')+'</span><h2>'+t(13)+'</h2></div><p>'+t(14)+'</p><div class="switchrow">'+t(15)+'<button class="toggle" role="switch" aria-label="'+t(15)+'" aria-checked="'+sound+'" data-switch></button></div></section></aside>'}
 function modePicker(){
- return '<div class="play-modes" role="group" aria-label="Game mode">'+['Opposites','Translations'].map((label,i)=>'<button type="button" data-mode="'+i+'" aria-pressed="'+(Boolean(i)===state.translating)+'">'+label+'</button>').join('')+'</div>';
+ return '<div class="play-modes" role="group" aria-label="'+ui().mode+'">'+ui().modes.map((label,i)=>'<button type="button" data-mode="'+i+'" aria-pressed="'+(Boolean(i)===state.translating)+'">'+label+'</button>').join('')+'</div>';
 }
 function game(){
  const q=currentRound().q;
  const mobileSound='<button class="compact-sound" data-switch aria-label="'+t(15)+'" aria-pressed="'+sound+'" title="'+t(15)+'">'+icon('speaker')+'</button>';
- if(q===21)return modePicker()+'<div class="layout"><section class="board"><div class="finish"><h2>'+(state.translating?'All 21 translations complete!':t(20))+'</h2><button data-replay class="primary">'+t(21)+'</button></div></section>'+sidebar()+'</div>';
+ if(q===21)return modePicker()+'<div class="layout"><section class="board"><div class="finish"><h2>'+(state.translating?ui().complete:t(20))+'</h2><button data-replay class="primary">'+t(21)+'</button></div></section>'+sidebar()+'</div>';
  const choices=options(q);
- const lang=questionLanguage(),sp=spelling.en;
+ const lang=questionLanguage(),sp=spelling[parentLanguage()];
  const tiles=choices.map((v,i)=>'<div class="tile"><button type="button" class="choice" data-say="'+v+'" aria-label="'+t(47)+' · '+v+'"><span class="glyph">'+(q===0&&!state.translating?icon(['moon','sun','rain'][i]):icon('speaker'))+'</span><span class="answerword" lang="'+lang+'">'+v+'</span></button></div>').join('');
  const letters=lang==='pl'?'ąćęłńóśźż':lang==='pt'?'áàâãçéêíóôõú':'';
  const keyboard=letters?'<div class="accents" aria-label="'+sp[5]+'">'+Array.from(letters,c=>'<button type="button" data-letter="'+c+'">'+c+'</button>').join('')+'</div>':'';
  const characters=Array.from(practiceWord(q,1).normalize('NFC'));
  const slots=characters.map(c=>'<span class="'+(c===' '?'space-slot':'')+'"></span>').join('');
- const lengthLabel='characters';
- const field='<label class="spell-field'+(wrong>=0?' incorrect':'')+'" style="--count:'+characters.length+'"><div class="spell-line"><div class="spell-slots" aria-hidden="true">'+slots+'</div><input id="answer" lang="'+lang+'" aria-invalid="'+(wrong>=0)+'" enterkeyhint="done" aria-label="'+(state.translating?'Type the translation':sp[0])+' ('+characters.length+' '+lengthLabel+')" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="80" required></div></label>';
+ const lengthLabel=ui().characters;
+ const field='<label class="spell-field'+(wrong>=0?' incorrect':'')+'" style="--count:'+characters.length+'"><div class="spell-line"><div class="spell-slots" aria-hidden="true">'+slots+'</div><input id="answer" lang="'+lang+'" aria-invalid="'+(wrong>=0)+'" enterkeyhint="done" aria-label="'+(state.translating?ui().type:sp[0])+' ('+characters.length+' '+lengthLabel+')" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="80" required></div></label>';
  const promptWord=practiceWord(q,0),source=sourceLanguage(q);
  const soundLabel=t(47)+' · '+promptWord;
  const prompt=state.translating||lang==='en'
   ? '<button type="button" class="pair-word" lang="'+source+'" data-voice="'+source+'" data-say="'+promptWord+'" aria-label="'+soundLabel+'"><span>'+promptWord+'</span>'+icon('speaker')+'</button>'
-  : '<div class="prompt-tools"><button type="button" class="translate-word" data-translate aria-expanded="false" aria-controls="english-preview"><span class="pair-word" lang="'+lang+'">'+promptWord+'</span><small class="preview-hint">Show English</small></button><button type="button" class="prompt-audio" data-say="'+promptWord+'" aria-label="'+soundLabel+'">'+icon('speaker')+'</button><small id="english-preview" lang="en" hidden>English: '+word(q,0,'en')+'</small></div>';
+  : '<div class="prompt-tools"><button type="button" class="translate-word" data-translate aria-expanded="false" aria-controls="english-preview"><span class="pair-word" lang="'+lang+'">'+promptWord+'</span><small class="preview-hint">'+ui().show+'</small></button><button type="button" class="prompt-audio" data-say="'+promptWord+'" aria-label="'+soundLabel+'">'+icon('speaker')+'</button><small id="english-preview" lang="en" hidden>'+word(q,0,'en')+'</small></div>';
  const pair='<div class="opposites">'+prompt+'<span class="pair-symbol" aria-hidden="true">'+coin+'</span>'+field+'</div>';
  const form='<form id="spell">'+pair+keyboard+'</form>';
  const feedback=wrong>=0?sp[4]:'';
  const hintsBox='<button class="hintlink" data-hints aria-expanded="'+hints+'">'+icon('book')+' '+sp[hints?3:2]+'</button>'+ '<div class="answers" '+(hints?'':'hidden')+'>'+tiles+'</div>';
- return modePicker()+'<div class="layout"><section class="board"><div class="boardtop"><span class="pill">'+icon('leaf')+t(5)+' '+(q+1)+' '+t(6)+' 21 · '+languageNames[lang]+'</span>'+mobileSound+'</div><div class="question"><p>'+(state.translating?'How do you say “'+promptWord+'” in '+languageNames[lang]+'?':t(8))+'</p></div>'+form+'<div aria-live="polite" class="feedback">'+feedback+'</div>'+hintsBox+'</section>'+sidebar()+'</div>';
+ return modePicker()+'<div class="layout"><section class="board"><div class="boardtop"><span class="pill">'+icon('leaf')+t(5)+' '+(q+1)+' '+t(6)+' 21 · '+ui().names[lang]+'</span>'+mobileSound+'</div><div class="question"><p>'+(state.translating?ui().ask(promptWord,lang):t(8))+'</p></div>'+form+'<div aria-live="polite" class="feedback">'+feedback+'</div>'+hintsBox+'</section>'+sidebar()+'</div>';
 }
 function album(){return '<section class="fullalbum"><div class="row"><h2>'+t(10)+'</h2><span class="count">'+state.won.length+' / 21</span></div>'+track()+'<div class="grid">'+pairs.map((_,i)=>'<div class="entry">'+token(i)+'<strong>'+(state.won.includes(i)?word(i,0,state.learned[i]||legacyLanguage)+' · '+word(i,1,state.learned[i]||legacyLanguage):t(24)+' '+(i+1))+'</strong></div>').join('')+'</div><button class="collectionlink" data-go="play">'+t(50)+'</button></section>'}
 const menuText={en:['Players','Disconnect'],pl:['Gracze','Rozłącz'],pt:['Jogadores','Desligar']};
 function childLanguages(child){
  const field=document.createElement('fieldset');
  field.className='practice-settings';
- field.innerHTML='<legend>Practice languages</legend><div class="practice-choices">'+langs.map(code=>'<label><input type="checkbox" value="'+code+'">'+languageNames[code]+'</label>').join('')+'</div>';
- field.setAttribute('aria-label','Practice languages for '+child.name);
+ field.innerHTML='<legend>'+ui().practice+'</legend><div class="practice-choices">'+langs.map(code=>'<label><input type="checkbox" value="'+code+'">'+ui().names[code]+'</label>').join('')+'</div>';
+ field.setAttribute('aria-label',ui().practice+' · '+child.name);
  const boxes=[...field.querySelectorAll('input')],playerKey=progressKey(child.id);
  function show(settings){
   for(const box of boxes){
@@ -166,7 +175,8 @@ function childLanguages(child){
  return field;
 }
 function render(){
- document.documentElement.lang='en';
+ document.documentElement.lang=parentLanguage();
+ document.title='Ying Yang · '+t(3);
  const signedOut=profile==='guest';
  document.body.classList.toggle('welcome',signedOut);
  if(signedOut){
@@ -178,10 +188,10 @@ function render(){
  const justEarned=recentAward?.state===state&&Date.now()<recentAward.until;
  const count='<b class="collection-points'+(justEarned?' earned':'')+'">'+state.points+'</b>';
  $('#nav').innerHTML=['play','collection'].map((v,i)=>'<button class="navbtn '+(collection===Boolean(i)?'current':'')+'" data-go="'+v+'">'+icon(i?'book':'play')+'<span>'+t(i)+'</span>'+(i?count:'')+'</button>').join('');
- const accountLabel=get(childNameKey(selectedChild()))||menuText.en[0];
+ const accountLabel=get(childNameKey(selectedChild()))||menuText[parentLanguage()][0];
  const account=$('#account');account.innerHTML=icon('user')+'<span></span>';account.querySelector('span').textContent=accountLabel;
  account.ariaLabel=accountLabel;account.title=accountLabel;$('.close').ariaLabel=t(46);
- $('#title').textContent=!collection&&state.translating?'Translations':t(collection?22:3);const player=get(childNameKey(selectedChild()));$('#subtitle').textContent=player?familyText.en[5]+' · '+player:state.translating&&!collection?'Translate 21 words and earn collection points.':t(collection?23:4);
+ $('#title').textContent=!collection&&state.translating?ui().modes[1]:t(collection?22:3);const player=get(childNameKey(selectedChild()));$('#subtitle').textContent=player?familyText[parentLanguage()][5]+' · '+player:state.translating&&!collection?ui().about:t(collection?23:4);
  $('#app').innerHTML=collection?album():game();if($('#answer'))$('#answer').value=typed;
 }
 function navigate(to){location.hash=to;collection=to==='collection';render()}
@@ -197,13 +207,13 @@ document.addEventListener('click',e=>{
   const preview=$('#english-preview');
   preview.hidden=!preview.hidden;
   b.setAttribute('aria-expanded',String(!preview.hidden));
-  b.querySelector('.preview-hint').textContent=preview.hidden?'Show English':'Hide English';
+  b.querySelector('.preview-hint').textContent=preview.hidden?ui().show:ui().hide;
  }
  if(b.dataset.say)speak(b.dataset.say,b.dataset.voice||questionLanguage());
  if(b.hasAttribute('data-switch')){sound=!sound;set('sound',sound?'on':'off');$('.toggle')?.setAttribute('aria-checked',String(sound));$('.compact-sound')?.setAttribute('aria-pressed',String(sound));if(!sound)stopWordAudio()}
  if(b.hasAttribute('data-hints')){
   hints=!hints;b.setAttribute('aria-expanded',String(hints));
-  b.innerHTML=icon('book')+' '+spelling.en[hints?3:2];b.nextElementSibling.hidden=!hints;
+  b.innerHTML=icon('book')+' '+spelling[parentLanguage()][hints?3:2];b.nextElementSibling.hidden=!hints;
  }
  if(b.dataset.letter&&$('#answer')){const input=$('#answer');input.setRangeText(b.dataset.letter,input.selectionStart,input.selectionEnd,'end');input.focus();evaluateAnswer(input)}
  if(b.hasAttribute('data-replay')){const round=currentRound();round.q=0;round.rotation=(round.rotation+1)%6;resetInput();save();render()}
@@ -261,7 +271,7 @@ function evaluateAnswer(input){
  const field=input.closest('.spell-field'),feedback=$('.feedback');
  const invalid=full&&answer!==expected;
  field.classList.toggle('incorrect',invalid);input.setAttribute('aria-invalid',String(invalid));
- feedback.textContent=invalid?spelling.en[4]:'';
+ feedback.textContent=invalid?spelling[parentLanguage()][4]:'';
  if(invalid){
   if(wrong<0||typed!==previous)answerTone(false);
   wrong=0;return;
@@ -368,21 +378,21 @@ async function startSignIn(useAmber){
  attempt.timer=setTimeout(fail,180000);
  try{
   if(!useAmber){
-   status.textContent=authText.en.extension;
+   status.textContent=authText[parentLanguage()].extension;
    let signer=extensionSigner();
    for(let poll=0;!signer&&poll<20;poll++){
     await new Promise(resolve=>setTimeout(resolve,100));
     if(activeAttempt!==attempt)return;
     signer=extensionSigner();
    }
-   if(!signer){fail(authText.en[location.protocol==='file:'?'file':'missing']);return}
+   if(!signer){fail(authText[parentLanguage()][location.protocol==='file:'?'file':'missing']);return}
    await confirmIdentity(signer,attempt);return;
   }
   attempt.pool=new SimplePool();
   const ephemeral=generateSecretKey();
   const uri=createNostrConnectURI({clientPubkey:getPublicKey(ephemeral),relays:signerRelays,secret:hex(crypto.getRandomValues(new Uint8Array(16))),perms:['get_public_key','sign_event:27235'],name:'Ying Yang',...(location.protocol.startsWith('http')?{url:location.origin}:{})});
   const pairing=BunkerSigner.fromURI(ephemeral,uri,{pool:attempt.pool},attempt.controller.signal);
-  link.href=uri;link.hidden=false;status.textContent=authText.en.approveAmber;
+  link.href=uri;link.hidden=false;status.textContent=authText[parentLanguage()].approveAmber;
   link.click();
   const signer=await pairing;
   if(activeAttempt!==attempt){await signer.close();return}
@@ -393,18 +403,18 @@ async function startSignIn(useAmber){
 
 $('#account').onclick=()=>{familyPanel();modal.showModal()};
 function connect(){
- const labels=authText.en,mobile=isMobileSigner();
+ const labels=authText[parentLanguage()],mobile=isMobileSigner();
  body.innerHTML='<h2>Connect</h2><p id="sign-status" role="status"></p><div class="actions"><a hidden id="amber-open" class="primary">'+labels.amber+'</a><button hidden id="auth-retry">'+labels.retry+'</button></div>';
  $('#auth-retry').onclick=()=>startSignIn(mobile);
  modal.showModal();
  startSignIn(mobile);
 }
 function familyPanel(unlocked=false){
- const labels=familyText.en;
+ const labels=familyText[parentLanguage()];
  const addForm=unlocked?'<form id="add-child"><label>'+labels[1]+'<input name="child" required maxlength="40" autocomplete="off"></label><button class="primary">'+labels[2]+'</button></form>':'';
- body.innerHTML='<h2>'+(unlocked?labels[0]:menuText.en[0])+'</h2>'+addForm+'<section id="players" class="actions"></section><p>'+t(48)+'</p><div class="actions" id="family-actions"></div>';
+ body.innerHTML='<h2>'+(unlocked?labels[0]:menuText[parentLanguage()][0])+'</h2>'+addForm+'<section id="players" class="actions"></section><p>'+t(48)+'</p><div class="actions" id="family-actions"></div>';
  const list=$('#players'), actions=$('#family-actions'), prefix=key(childNameKey(''));
- const children=Object.keys(storage).filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length),name:storage.getItem(k)})).sort((a,b)=>a.name.localeCompare(b.name,'en'));
+ const children=Object.keys(storage).filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length),name:storage.getItem(k)})).sort((a,b)=>a.name.localeCompare(b.name,parentLanguage()));
  function button(container,label,run){
   const element=document.createElement('button');element.type='button';element.textContent=label;element.onclick=run;container.append(element);return element;
  }
@@ -421,9 +431,28 @@ function familyPanel(unlocked=false){
   }
  }
  actions.innerHTML=unlocked?'':parentButton();
- if(profile!=='guest')button(actions,menuText.en[1],()=>{switchProfile('guest');modal.close()}).id='logout';
+ if(profile!=='guest')button(actions,menuText[parentLanguage()][1],()=>{switchProfile('guest');modal.close()}).id='logout';
  if(!unlocked)return;
  const form=$('#add-child'),input=form.elements.child;
+ const languageLabel=document.createElement('label');
+ languageLabel.className='menu-language';
+ languageLabel.textContent=ui().setting;
+ const selector=document.createElement('select');
+ const nativeNames={en:'English',pl:'Polski',pt:'Português'};
+ for(const code of langs){
+  const option=new Option(nativeNames[code],code);
+  option.lang=code;selector.add(option);
+ }
+ selector.id='command-language';selector.value=parentLanguage();
+ languageLabel.append(selector);actions.prepend(languageLabel);
+ selector.onchange=()=>{
+  const draft=input.value;
+  set('commands.'+profile,selector.value);
+  $('#notice').textContent='';
+  render();familyPanel(true);
+  $('#add-child').elements.child.value=draft;
+  $('#command-language').focus();
+ };
  input.oninput=()=>input.setCustomValidity('');
  form.onsubmit=e=>{
   e.preventDefault();const name=input.value.trim();
