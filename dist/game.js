@@ -25,12 +25,23 @@ const word=(q,side)=>pairs[q][li()][side];
 const paths={user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',play:'<path d="m8 5 11 7-11 7z"/>',book:'<path d="M3 5q5-2 9 1 4-3 9-1v14q-5-2-9 1-4-3-9-1zM12 6v14"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',leaf:'<path d="M5 20c0-7 4-11 12-14M5 16C1 7 11 4 20 4c0 9-5 15-15 12Z"/>',speaker:'<path d="m11 5-5 4H3v6h3l5 4zM15 9q3 3 0 6m3-9q6 6 0 12"/>',phones:'<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="8" rx="2"/><rect x="17" y="12" width="4" height="8" rx="2"/>',arrow:'<path d="M4 12h15m-6-6 6 6-6 6"/>',mountain:'<path d="m2 19 7-12 4 7 3-5 6 10zM6 12l3 2 2-3"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M20 4l-2 2M6 18l-2 2"/>',moon:'<path d="M19 15A8 8 0 0 1 9 4a8.4 8.4 0 1 0 10 11Z"/><path d="m18 2 .6 2.4L21 5l-2.4.6L18 8l-.6-2.4L15 5l2.4-.6z"/>',rain:'<path d="M6 14a4 4 0 1 1 .3-8A5 5 0 0 1 16 7a3.5 3.5 0 1 1 1 7zM8 17l-1 2m6-2-1 3m6-3-1 2"/>'};
 const icon=k=>'<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+paths[k]+'</svg>';
 const coin='<svg class="coin" aria-hidden="true" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#fffbea" stroke="currentColor" stroke-width="2"/><path d="M20 1.5a18.5 18.5 0 0 0 0 37 9.25 9.25 0 0 0 0-18.5 9.25 9.25 0 0 1 0-18.5" fill="currentColor"/><circle cx="20" cy="10.75" r="3.2" fill="currentColor"/><circle cx="20" cy="29.25" r="3.2" fill="#fffbea"/></svg>';
+const familyText={
+ en:['Add your children','Name or nickname','Add child','Choose who’s playing','Original collection','Playing as','Enter a name to add a child.'],
+ pl:['Dodaj swoje dzieci','Imię lub pseudonim','Dodaj dziecko','Wybierz, kto gra','Pierwotna kolekcja','Gra','Wpisz imię dziecka.'],
+ pt:['Adicionar os teus filhos','Nome ou alcunha','Adicionar criança','Escolhe quem vai jogar','Coleção original','A jogar como','Escreve um nome para adicionar a criança.']
+};
+function childNameKey(id){return 'children.'+profile+'.'+id}
+function selectedChild(){return sessionStorage.getItem(key('selected.'+profile))||''}
+function progressKey(){
+ const id=selectedChild();
+ return id&&get(childNameKey(id))?profile+'.player.'+id:profile;
+}
 function saved(){
-  let s;try{s=JSON.parse(get(profile))}catch{}
+  let s;try{s=JSON.parse(get(progressKey()))}catch{}
   return {won:[...new Set((Array.isArray(s?.won)?s.won:[]).filter(i=>Number.isInteger(i)&&i>=0&&i<21))],q:Number.isInteger(s?.q)&&s.q>=0&&s.q<=21?s.q:0,answered:s?.answered===true};
 }
 let state=saved();
-const save=()=>set(profile,JSON.stringify(state));
+const save=()=>set(progressKey(),JSON.stringify(state));
 const msg=text=>{clearTimeout(noticeTimer);$('#notice').textContent=text;noticeTimer=setTimeout(()=>$('#notice').textContent='',4500)};
 function speak(text){
   if(!window.speechSynthesis){msg(t(45));return}
@@ -75,7 +86,7 @@ function render(){
  const accountLabel=t(profile==='guest'?37:36);
  $('#account').innerHTML=icon('user')+'<span>Nostr</span>';$('#account').ariaLabel=accountLabel;$('#account').title=accountLabel;
  $('#parent').innerHTML=icon('lock')+'<span>'+t(2)+'</span>';$('#parent').setAttribute('aria-label',t(2));$('#parent').title=t(2);$('.close').ariaLabel=t(46);
- $('#title').textContent=t(collection?22:3);$('#subtitle').textContent=t(collection?23:4);
+ $('#title').textContent=t(collection?22:3);const player=get(childNameKey(selectedChild()));$('#subtitle').textContent=player?familyText[lang][5]+' · '+player:t(collection?23:4);
  $('#app').innerHTML=collection?album():game();if($('#answer'))$('#answer').value=typed;
 }
 function navigate(to){location.hash=to;collection=to==='collection';render()}
@@ -143,7 +154,7 @@ $('#parent').onclick=()=>{
    const salt=record?.salt||hex(crypto.getRandomValues(new Uint8Array(16))),hash=await digest(pin,salt);
    if(!modal.open||!form.isConnected)return;
    if(record&&record.hash!==hash){err.textContent=t(34);return}
-   if(!record)set('pin',JSON.stringify({salt,hash}));parentPanel();
+   if(!record)set('pin',JSON.stringify({salt,hash}));familyPanel(true);
   }finally{submit.disabled=false}
  };
 };
@@ -182,7 +193,7 @@ async function confirmIdentity(signer,attempt){
  const signed=JSON.parse(JSON.stringify(await signer.signEvent(challenge)));
  if(activeAttempt!==attempt||!modal.open)return;
  if(signed.pubkey!==pubkey||signed.kind!==27235||signed.created_at!==created||signed.content!==''||JSON.stringify(signed.tags)!==expected||!verifyEvent(signed))throw Error();
- stopSignIn();switchProfile(pubkey);modal.close();
+ stopSignIn();switchProfile(pubkey);familyPanel();
 }
 
 async function startSignIn(useAmber){
@@ -222,9 +233,7 @@ async function startSignIn(useAmber){
 $('#account').onclick=()=>{
  const labels=authText[lang];
  if(profile!=='guest'){
-  body.innerHTML='<h2>'+t(36)+'</h2><p></p><button class="primary" id="logout">'+t(38)+'</button>';
-  body.querySelector('p').textContent=profile.slice(0,12)+'…'+profile.slice(-7);
-  $('#logout').onclick=()=>{switchProfile('guest');modal.close()};
+  familyPanel();
  }else{
   const mobile=isMobileSigner();
   body.innerHTML='<h2>'+t(37)+'</h2><p id="sign-status" role="status"></p><div class="actions"><a hidden id="amber-open" class="primary">'+labels.amber+'</a><button hidden id="auth-retry">'+labels.retry+'</button></div>';
@@ -235,11 +244,39 @@ $('#account').onclick=()=>{
  }
  modal.showModal();
 };
-function parentPanel(){
- body.innerHTML='<h2>'+t(25)+'</h2><p>'+t(48)+'</p><div class="actions"><button id="reset">'+t(39)+'</button></div>';
+function familyPanel(unlocked=false){
+ const labels=familyText[lang];
+ body.innerHTML='<h2>'+labels[0]+'</h2><form id="add-child"><label>'+labels[1]+'<input name="child" required maxlength="40" autocomplete="off"></label><button class="primary">'+labels[2]+'</button></form><section id="players" class="actions"></section><p>'+t(48)+'</p><div class="actions" id="family-actions"></div>';
+ const list=$('#players'), actions=$('#family-actions'), prefix=key(childNameKey(''));
+ const children=Object.keys(storage).filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length),name:storage.getItem(k)})).sort((a,b)=>a.name.localeCompare(b.name,lang));
+ function button(container,label,run){
+  const element=document.createElement('button');element.type='button';element.textContent=label;element.onclick=run;container.append(element);return element;
+ }
+ function choose(id){
+  sessionStorage.setItem(key('selected.'+profile),id);
+  state=saved();resetInput();navigate('play');modal.close();
+ }
+ if(children.length){
+  const heading=document.createElement('h3');heading.textContent=labels[3];list.append(heading);
+  for(const child of children)button(list,child.name,()=>choose(child.id)).dataset.player=child.id;
+  if(get(profile))button(list,labels[4],()=>choose(''));
+ }
+ const form=$('#add-child'),input=form.elements.child;
+ input.oninput=()=>input.setCustomValidity('');
+ form.onsubmit=e=>{
+  e.preventDefault();const name=input.value.trim();
+  if(!name){input.setCustomValidity(labels[6]);input.reportValidity();return}
+  const id=crypto.randomUUID();set(childNameKey(id),name);
+  familyPanel(unlocked);
+  body.querySelector('[data-player="'+id+'"]').focus();
+ };
+ if(profile!=='guest'&&!unlocked)button(actions,t(38),()=>{switchProfile('guest');modal.close()}).id='logout';
+ if(!unlocked)return;
+ const name=get(childNameKey(selectedChild()));
+ button(actions,t(39)+(name?' · '+name:''),null).id='reset';
  $('#reset').onclick=()=>{
   body.innerHTML='<h2>'+t(39)+'</h2><p>'+t(40)+'</p><div class="actions"><button id="cancel">'+t(42)+'</button><button id="confirm" class="primary">'+t(41)+'</button></div>';
-  $('#cancel').onclick=parentPanel;$('#confirm').onclick=()=>{state={q:0,won:[],answered:false};resetInput();save();navigate('play');modal.close()};
+  $('#cancel').onclick=()=>familyPanel(true);$('#confirm').onclick=()=>{state={q:0,won:[],answered:false};resetInput();save();navigate('play');modal.close()};
  };
 }
 render();
