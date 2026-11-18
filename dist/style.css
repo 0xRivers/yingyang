@@ -69,3 +69,5 @@ dialog{max-height:calc(var(--visible-height) - 18px);overflow:auto}
 .short-play:has(#spell) .word{justify-content:flex-start}
 .short-play:has(#spell) #spell{clear:both}
 .short-play:has(#spell) .choice{min-height:30px}
+#amber-open{text-align:center;border-radius:10px;text-decoration:none}#amber-open[hidden]{display:none}
+@media(max-width:610px){#account span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.bar .tools{gap:1px}.tools .plain{width:36px}}

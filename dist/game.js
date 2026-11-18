@@ -1,5 +1,5 @@
 import {pairs,copy} from './words.js';
-import {verifyEvent} from './verify.js';
+import {BunkerSigner,createNostrConnectURI,generateSecretKey,getPublicKey,SimplePool,verifyEvent} from './verify.js';
 
 const $=s=>document.querySelector(s);
 const storage=localStorage;
@@ -22,7 +22,7 @@ function resetInput(){wrong=-1;typed='';hints=false}
 const t=i=>copy[lang][i];
 const li=()=>langs.indexOf(lang);
 const word=(q,side)=>pairs[q][li()][side];
-const paths={play:'<path d="m8 5 11 7-11 7z"/>',book:'<path d="M3 5q5-2 9 1 4-3 9-1v14q-5-2-9 1-4-3-9-1zM12 6v14"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',leaf:'<path d="M5 20c0-7 4-11 12-14M5 16C1 7 11 4 20 4c0 9-5 15-15 12Z"/>',speaker:'<path d="m11 5-5 4H3v6h3l5 4zM15 9q3 3 0 6m3-9q6 6 0 12"/>',phones:'<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="8" rx="2"/><rect x="17" y="12" width="4" height="8" rx="2"/>',arrow:'<path d="M4 12h15m-6-6 6 6-6 6"/>',mountain:'<path d="m2 19 7-12 4 7 3-5 6 10zM6 12l3 2 2-3"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M20 4l-2 2M6 18l-2 2"/>',moon:'<path d="M19 15A8 8 0 0 1 9 4a8.4 8.4 0 1 0 10 11Z"/><path d="m18 2 .6 2.4L21 5l-2.4.6L18 8l-.6-2.4L15 5l2.4-.6z"/>',rain:'<path d="M6 14a4 4 0 1 1 .3-8A5 5 0 0 1 16 7a3.5 3.5 0 1 1 1 7zM8 17l-1 2m6-2-1 3m6-3-1 2"/>'};
+const paths={user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',play:'<path d="m8 5 11 7-11 7z"/>',book:'<path d="M3 5q5-2 9 1 4-3 9-1v14q-5-2-9 1-4-3-9-1zM12 6v14"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',leaf:'<path d="M5 20c0-7 4-11 12-14M5 16C1 7 11 4 20 4c0 9-5 15-15 12Z"/>',speaker:'<path d="m11 5-5 4H3v6h3l5 4zM15 9q3 3 0 6m3-9q6 6 0 12"/>',phones:'<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="8" rx="2"/><rect x="17" y="12" width="4" height="8" rx="2"/>',arrow:'<path d="M4 12h15m-6-6 6 6-6 6"/>',mountain:'<path d="m2 19 7-12 4 7 3-5 6 10zM6 12l3 2 2-3"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M20 4l-2 2M6 18l-2 2"/>',moon:'<path d="M19 15A8 8 0 0 1 9 4a8.4 8.4 0 1 0 10 11Z"/><path d="m18 2 .6 2.4L21 5l-2.4.6L18 8l-.6-2.4L15 5l2.4-.6z"/>',rain:'<path d="M6 14a4 4 0 1 1 .3-8A5 5 0 0 1 16 7a3.5 3.5 0 1 1 1 7zM8 17l-1 2m6-2-1 3m6-3-1 2"/>'};
 const icon=k=>'<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+paths[k]+'</svg>';
 const coin='<svg class="coin" aria-hidden="true" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#fffbea" stroke="currentColor" stroke-width="2"/><path d="M20 1.5a18.5 18.5 0 0 0 0 37 9.25 9.25 0 0 0 0-18.5 9.25 9.25 0 0 1 0-18.5" fill="currentColor"/><circle cx="20" cy="10.75" r="3.2" fill="currentColor"/><circle cx="20" cy="29.25" r="3.2" fill="#fffbea"/></svg>';
 function saved(){
@@ -72,6 +72,8 @@ function render(){
  if(!$('.brandmark svg'))$('.brandmark').innerHTML=coin;
  $('#nav').innerHTML=['play','collection'].map((v,i)=>'<button class="navbtn '+(collection===Boolean(i)?'current':'')+'" data-go="'+v+'">'+icon(i?'book':'play')+'<span>'+t(i)+'</span>'+'</button>').join('');
  $('#languages').innerHTML=icon('globe')+'<select aria-label="'+t(53)+'">'+['English','Polski','Português'].map((v,i)=>'<option value="'+langs[i]+'" '+(lang===langs[i]?'selected':'')+'>'+v+'</option>').join('')+'</select>';
+ const accountLabel=t(profile==='guest'?37:36);
+ $('#account').innerHTML=icon('user')+'<span>Nostr</span>';$('#account').ariaLabel=accountLabel;$('#account').title=accountLabel;
  $('#parent').innerHTML=icon('lock')+'<span>'+t(2)+'</span>';$('#parent').setAttribute('aria-label',t(2));$('#parent').title=t(2);$('.close').ariaLabel=t(46);
  $('#title').textContent=t(collection?22:3);$('#subtitle').textContent=t(collection?23:4);
  $('#app').innerHTML=collection?album():game();if($('#answer'))$('#answer').value=typed;
@@ -146,22 +148,78 @@ $('#parent').onclick=()=>{
  };
 };
 function switchProfile(p){profile=p;sessionStorage.setItem(key('profile'),p);state=saved();resetInput();render()}
+const authText={
+ en:['Connect extension','Open Amber','Approve the connection and sign-in in Amber, then return here.','New code','Approve the sign-in in your extension.'],
+ pl:['Połącz z rozszerzeniem','Otwórz Amber','Zatwierdź połączenie i logowanie w Amber, a potem wróć tutaj.','Nowy kod','Zatwierdź logowanie w rozszerzeniu.'],
+ pt:['Ligar à extensão','Abrir Amber','Aprova a ligação e o início de sessão no Amber e volta aqui.','Novo código','Aprova o início de sessão na extensão.']
+};
+const signerRelays=['wss://relay.nip46.com','wss://nrs.primal.net'];
+let activeAttempt;
+function stopSignIn(){
+ const attempt=activeAttempt;
+ activeAttempt=null;
+ if(!attempt)return;
+ clearTimeout(attempt.timer);
+ attempt.controller.abort();
+ attempt.signer?.close().catch(()=>{});
+ attempt.pool?.close(signerRelays);
+}
+modal.addEventListener('close',stopSignIn);
+
+async function confirmIdentity(signer,attempt){
+ const pubkey=await signer.getPublicKey();
+ if(activeAttempt!==attempt)return;
+ const challenge={kind:27235,created_at:Math.floor(Date.now()/1000),tags:[['u',location.href.split('#')[0]],['method','GET'],['challenge',crypto.randomUUID()]],content:''};
+ const expected=JSON.stringify(challenge.tags),created=challenge.created_at;
+ const signed=JSON.parse(JSON.stringify(await signer.signEvent(challenge)));
+ if(activeAttempt!==attempt||!modal.open)return;
+ if(!/^[a-f0-9]{64}$/.test(pubkey)||signed.pubkey!==pubkey||signed.kind!==27235||signed.created_at!==created||signed.content!==''||JSON.stringify(signed.tags)!==expected||!verifyEvent(signed))throw Error();
+ stopSignIn();switchProfile(pubkey);modal.close();
+}
+
+async function startSignIn(useAmber){
+ stopSignIn();
+ const attempt={controller:new AbortController()};
+ activeAttempt=attempt;
+ const status=$('#sign-status'),link=$('#amber-open');
+ link.hidden=true;link.removeAttribute('href');
+ const fail=()=>{if(activeAttempt===attempt){stopSignIn();link.hidden=true;status.textContent=t(44)}};
+ attempt.timer=setTimeout(fail,180000);
+ try{
+  if(!useAmber){
+   if(!window.nostr?.signEvent){stopSignIn();status.textContent=t(43);return}
+   status.textContent=authText[lang][4];
+   await confirmIdentity(window.nostr,attempt);return;
+  }
+  attempt.pool=new SimplePool();
+  const ephemeral=generateSecretKey();
+  const uri=createNostrConnectURI({clientPubkey:getPublicKey(ephemeral),relays:signerRelays,secret:hex(crypto.getRandomValues(new Uint8Array(16))),perms:['sign_event:27235'],name:'Ying Yang',...(location.protocol.startsWith('http')?{url:location.origin}:{})});
+  const pairing=BunkerSigner.fromURI(ephemeral,uri,{pool:attempt.pool,skipSwitchRelays:true},attempt.controller.signal);
+  link.href=uri;link.hidden=false;status.textContent=authText[lang][2];
+  const signer=await pairing;
+  if(activeAttempt!==attempt){await signer.close();return}
+  attempt.signer=signer;
+  await confirmIdentity(signer,attempt);
+ }catch{fail()}
+}
+
+$('#account').onclick=()=>{
+ const labels=authText[lang];
+ if(profile!=='guest'){
+  body.innerHTML='<h2>'+t(36)+'</h2><p></p><button class="primary" id="logout">'+t(38)+'</button>';
+  body.querySelector('p').textContent=profile.slice(0,12)+'…'+profile.slice(-7);
+  $('#logout').onclick=()=>{switchProfile('guest');modal.close()};
+ }else{
+  const mobile=/Android/i.test(navigator.userAgent)||window.matchMedia?.('(max-width:720px)').matches;
+  body.innerHTML='<h2>'+t(37)+'</h2><div class="actions"><a hidden id="amber-open" class="primary">'+labels[1]+'</a><button id="extension">'+labels[0]+'</button><button id="amber">Amber</button></div><p id="sign-status" role="status"></p>';
+  $('#extension').onclick=()=>startSignIn(false);
+  $('#amber').onclick=()=>{$('#amber').textContent=labels[3];startSignIn(true)};
+  if(mobile)$('#amber').click();
+ }
+ modal.showModal();
+};
 function parentPanel(){
- const guest=profile==='guest';
- body.innerHTML='<h2>'+t(25)+'</h2><p>'+(guest?t(35):t(36)+' · '+profile.slice(0,12)+'…')+'</p><p>'+t(48)+'</p><div class="actions"><button class="primary" id="login">'+t(guest?37:38)+'</button><button id="reset">'+t(39)+'</button></div><p role="alert" class="error"></p>';
- $('#login').onclick=async e=>{
-  if(!guest){switchProfile('guest');parentPanel();return}
-  const error=body.querySelector('.error');
-  if(!window.nostr?.signEvent){error.textContent=t(43);return}
-  const button=e.currentTarget;button.disabled=true;
-  try{
-   const pubkey=await window.nostr.getPublicKey();
-   const event={kind:27235,created_at:Math.floor(Date.now()/1000),tags:[['u',location.origin+'/'],['method','GET'],['challenge',crypto.randomUUID()]],content:''};
-   const template=JSON.stringify(event),signed=await window.nostr.signEvent(event),expected=JSON.parse(template);
-   if(!/^[0-9a-f]{64}$/.test(pubkey)||signed.pubkey!==pubkey||signed.kind!==expected.kind||signed.content!==''||signed.created_at!==expected.created_at||JSON.stringify(signed.tags)!==JSON.stringify(expected.tags)||!verifyEvent(JSON.parse(JSON.stringify(signed))))throw Error();
-   if(modal.open&&button.isConnected){switchProfile(pubkey);parentPanel()}
-  }catch{error.textContent=t(44)}finally{button.disabled=false}
- };
+ body.innerHTML='<h2>'+t(25)+'</h2><p>'+t(48)+'</p><div class="actions"><button id="reset">'+t(39)+'</button></div>';
  $('#reset').onclick=()=>{
   body.innerHTML='<h2>'+t(39)+'</h2><p>'+t(40)+'</p><div class="actions"><button id="cancel">'+t(42)+'</button><button id="confirm" class="primary">'+t(41)+'</button></div>';
   $('#cancel').onclick=parentPanel;$('#confirm').onclick=()=>{state={q:0,won:[],answered:false};resetInput();save();navigate('play');modal.close()};
